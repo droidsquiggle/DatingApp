@@ -15,7 +15,7 @@ export class HomeComponent implements OnInit {
   ngOnInit() {
   }
 
-  registerToggle(){
+  registerToggle() {
     this.registerMode = true;
   }
 
