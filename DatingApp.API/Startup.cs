@@ -19,6 +19,7 @@ using System.Net;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using DatingApp.API.Helpers;
+using AutoMapper;
 
 namespace DatingApp.API
 {
@@ -35,10 +36,20 @@ namespace DatingApp.API
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddDbContext<DataContext>(x=> x.UseSqlite(Configuration.GetConnectionString("DefaultConnection")));
-            services.AddControllers();
+            services.AddControllers().AddNewtonsoftJson(opt => 
+            {
+                // temp, ignore the looping exception which is caused by user object referencing photos and photos
+                // object referencing users
+                opt.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore;
+            });
             // add cors service for middleware
             services.AddCors();
+            
+            // using nuget package "AutoMapper.Extensions.Microsoft.DependencyInjection" to link dto's to models
+            services.AddAutoMapper(typeof(DatingRepository).Assembly);
+
             services.AddScoped<IAuthRepository, AuthRepository>();
+            services.AddScoped<IDatingRepository, DatingRepository>();
 
             // configure authentication scheme we'r egoing to use
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
