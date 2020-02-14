@@ -17,7 +17,7 @@ namespace DatingApp.API.Data
         {
             // FirstOrDefaultAsync() returns null if nothing found
             // First() throws an exception if nothing is found
-            var user = await _context.Users.FirstOrDefaultAsync(x => x.Username == username);
+            var user = await _context.Users.Include(p => p.Photos).FirstOrDefaultAsync(x => x.Username == username);
 
             if(user == null)
                 return null;

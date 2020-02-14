@@ -3,6 +3,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
+using AutoMapper;
 using DatingApp.API.Data;
 using DatingApp.API.Dtos;
 using DatingApp.API.Models;
@@ -20,11 +21,14 @@ namespace DatingApp.API.Controllers
     {
         private readonly IAuthRepository _repo;
         private readonly IConfiguration _config;
-        public AuthController(IAuthRepository repo, IConfiguration config)
+        private readonly IMapper _mapper;
+
+        public AuthController(IAuthRepository repo, IConfiguration config, IMapper mapper)
         {
             // config needed to get access for AppSettings.json for login function
-            this._config = config;
-            this._repo = repo;
+            _config = config;
+            _mapper = mapper;
+            _repo = repo;
 
         }
 
@@ -93,11 +97,18 @@ namespace DatingApp.API.Controllers
 
             var token = tokenHandler.CreateToken(tokenDescriptior);
 
+            // we will mape the user from repo to the UserForListDto and include that in the response
+            // this way our local storage at the highest level of the application will have user info
+            // used to store user main photo in the nav bar
+            // could create a new dto specificallyfor this but being lazy
+            var user = _mapper.Map<UserForListDto>(userFromRepo);
+            
             // write token into response we send back to clients with the token handler
             // the returned token json to the browser you can decode it in on:
             // https://jwt.io 
             return Ok(new {
-                token = tokenHandler.WriteToken(token)
+                token = tokenHandler.WriteToken(token),
+                user
             });
             
         }

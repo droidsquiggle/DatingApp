@@ -17,6 +17,9 @@
     <!-- using angular snippit a-ngif plus tab we can insert the code for an ifstatement -->
     <!-- astriks are always infront of structula directives which directly alters DOMs -->
     <div *ngIf="loggedIn()" class="dropdown" dropdown>
+      <span class="mr-1">
+        <img src="{{photoUrl}}" alt="">
+      </span>      
       <a class="dropdown-toggle text-light" dropdownToggle>
         Welcome {{authService.decodedToken?.unique_name | titlecase}}
       </a>

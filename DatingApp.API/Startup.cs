@@ -44,7 +44,8 @@ namespace DatingApp.API
             });
             // add cors service for middleware
             services.AddCors();
-            
+            // map the cloudinary settings (api key/secret) to the cloudinary settings helper
+            services.Configure<CloudinarySettings>(Configuration.GetSection("CloudinarySettings"));
             // using nuget package "AutoMapper.Extensions.Microsoft.DependencyInjection" to link dto's to models
             services.AddAutoMapper(typeof(DatingRepository).Assembly);
 
