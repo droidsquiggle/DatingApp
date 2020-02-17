@@ -41,9 +41,9 @@ export class AuthService {
       );
     }
 
-  register(model: any) {
+  register(user: User) {
     // we still need to subscribe to this component because its still returning an observable
-    return this.http.post(this.baseUrl + 'register', model);
+    return this.http.post(this.baseUrl + 'register', user);
   }
 
   // this will return false if there are any issues with the login token
