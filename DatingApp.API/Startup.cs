@@ -52,6 +52,8 @@ namespace DatingApp.API
             services.AddScoped<IAuthRepository, AuthRepository>();
             services.AddScoped<IDatingRepository, DatingRepository>();
 
+            services.AddScoped<LogUserActivity>();
+            
             // configure authentication scheme we'r egoing to use
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options => {
