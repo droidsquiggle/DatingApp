@@ -12,7 +12,7 @@ namespace DatingApp.API.Models
         public string PublicId { get; set; }
         // these create a link back to users for a cascade delete
         // if a user is deleted, the photos will be deleted too
-        public User User { get; set; }
+        public virtual User User { get; set; }
         public int UserId { get; set; }
     }
 }

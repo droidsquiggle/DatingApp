@@ -32,10 +32,37 @@ namespace DatingApp.API
 
         public IConfiguration Configuration { get; }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
+        public void ConfigureDevelopmentServices(IServiceCollection services)
+        {
+            services.AddDbContext<DataContext>(x=> {
+                x.UseLazyLoadingProxies();
+                x.UseSqlite(Configuration.GetConnectionString("DefaultConnection"));
+            });
+                
+            ConfigureServices(services);
+        }
+
+        public void ConfigureProductionServices(IServiceCollection services)
+        {
+            // SQL SERVER CONTEXT IN PRODUCTION
+            services.AddDbContext<DataContext>(x=> {
+                x.UseLazyLoadingProxies();
+                x.UseSqlServer(Configuration.GetConnectionString("SqlServerConnection"));
+            });
+            
+            // MY SQL CONTEXT IN PRODUCTION
+            // services.AddDbContext<DataContext>(x=> {
+            //     x.UseLazyLoadingProxies();
+            //     x.UseMySql(Configuration.GetConnectionString("DefaultConnection"));
+            // });
+        
+            ConfigureServices(services);
+        }
+
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddDbContext<DataContext>(x=> x.UseSqlite(Configuration.GetConnectionString("DefaultConnection")));
+            
+            
             services.AddControllers().AddNewtonsoftJson(opt => 
             {
                 // temp, ignore the looping exception which is caused by user object referencing photos and photos
@@ -108,10 +135,21 @@ namespace DatingApp.API
             // add rules to allow cors headers these are default cors that allow any origin
             app.UseCors(x => x.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 
+            // tells kestrel root file to look for standard html default files in the wwwroot folder
+            // where we directed our NG Build for the spa
+            app.UseDefaultFiles();
+            // and now tell the server to use these static files
+            app.UseStaticFiles();
+
+
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
-                //endpoints.MapFallbackToController("Index", "Fallback");
+                // since the routes is handled in angular, when the server runs an angular route off the 5000 port, 
+                // it needs to be directed to the route, this is a specialized route endpoint
+                // anything its not aware of thats not an api end point will fallback to teh index pages routes
+                // in the wwwroute folder
+                endpoints.MapFallbackToController("Index", "Fallback");
             });
         }
     }
