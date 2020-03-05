@@ -1,6 +1,8 @@
 using System;
 using DatingApp.API.Data;
+using DatingApp.API.Models;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -22,10 +24,14 @@ namespace DatingApp.API
                 {
                     // create database
                     var context = services.GetRequiredService<DataContext>();
+                    // create userManager context
+                    var userManager = services.GetRequiredService<UserManager<User>>();
+                    // create RoleManagercontext
+                    var roleManager = services.GetRequiredService<RoleManager<Role>>();
                     // run database migrations
                     context.Database.Migrate();
                     // seed users from database
-                    Seed.SeedUsers(context);
+                    Seed.SeedUsers(userManager, roleManager);
                 }
                 catch (Exception ex)
                 {

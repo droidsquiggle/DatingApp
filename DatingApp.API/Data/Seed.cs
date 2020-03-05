@@ -2,31 +2,56 @@ using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
 using DatingApp.API.Models;
+using Microsoft.AspNetCore.Identity;
 
 namespace DatingApp.API.Data
 {
     public class Seed
     {
         // a static class because we dont want multiple instances of this class
-        public static void SeedUsers(DataContext context)
+        public static void SeedUsers(UserManager<User> userManager, RoleManager<Role> roleManager)
         {
-            if (!context.Users.Any())
+            if (!userManager.Users.Any())
             {
                 var userData = System.IO.File.ReadAllText("Data/UserSeedData.json");
                 var users = JsonConvert.DeserializeObject<List<User>>(userData);
-                foreach (var user in users)
+                
+                // create some roles
+                var roles = new List<Role>
                 {
-                    byte[] passwordhash, passwordSalt;
-                    CreatePasswordHash("password", out passwordhash, out passwordSalt);
+                    new Role{Name = "Member"},
+                    new Role{Name = "Admin"},
+                    new Role{Name = "Moderator"},
+                    new Role{Name = "VIP"}
+                };
 
-                    user.PasswordHash = passwordhash;
-                    user.PasswordSalt = passwordSalt;
-                    user.Username = user.Username.ToLower();
-
-                    context.Users.Add(user);
+                foreach (var role in roles)
+                {
+                    roleManager.CreateAsync(role).Wait();
                 }
 
-                context.SaveChanges();
+                foreach (var user in users)
+                {
+                    user.Photos.SingleOrDefault().IsApproved = true;
+                    userManager.CreateAsync(user, "password").Wait();
+                    userManager.AddToRoleAsync(user, "Member");
+                }
+
+                // create admin user
+                var adminUser = new User
+                {
+                    UserName = "Admin"
+                };
+
+                var result = userManager.CreateAsync(adminUser, "password").Result;
+
+                if (result.Succeeded)
+                {
+                    var admin = userManager.FindByNameAsync("Admin").Result;
+                    userManager.AddToRolesAsync(admin, new[] {"Admin", "Moderator"});
+                }
+
+                // when calling anything from the userManager it auto saves, no need to save
             }
         }
 

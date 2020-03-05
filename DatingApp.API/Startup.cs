@@ -20,6 +20,10 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using DatingApp.API.Helpers;
 using AutoMapper;
+using Microsoft.AspNetCore.Identity;
+using DatingApp.API.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Authorization;
 
 namespace DatingApp.API
 {
@@ -61,26 +65,25 @@ namespace DatingApp.API
 
         public void ConfigureServices(IServiceCollection services)
         {
-            
-            
-            services.AddControllers().AddNewtonsoftJson(opt => 
+            // using addidentitycore because that allows us to use our jwt token
+            // if we use addidentity it sets up with cookies
+            IdentityBuilder builder = services.AddIdentityCore<User>(opt =>
             {
-                // temp, ignore the looping exception which is caused by user object referencing photos and photos
-                // object referencing users
-                opt.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore;
+                // using options so that we can set weak passwords, not something to do in production
+                opt.Password.RequireDigit = false;
+                opt.Password.RequiredLength = 4;
+                opt.Password.RequireNonAlphanumeric = false;
+                opt.Password.RequireUppercase = false;
             });
-            // add cors service for middleware
-            services.AddCors();
-            // map the cloudinary settings (api key/secret) to the cloudinary settings helper
-            services.Configure<CloudinarySettings>(Configuration.GetSection("CloudinarySettings"));
-            // using nuget package "AutoMapper.Extensions.Microsoft.DependencyInjection" to link dto's to models
-            services.AddAutoMapper(typeof(DatingRepository).Assembly);
 
-            services.AddScoped<IAuthRepository, AuthRepository>();
-            services.AddScoped<IDatingRepository, DatingRepository>();
+            // take the new builder and build the services for it
+            builder = new IdentityBuilder(builder.UserType, typeof(Role), builder.Services);
+            // this will add these services so that the tables in our db are created to handle identity 
+            builder.AddEntityFrameworkStores<DataContext>();
+            builder.AddRoleValidator<RoleValidator<Role>>();
+            builder.AddRoleManager<RoleManager<Role>>();
+            builder.AddSignInManager<SignInManager<User>>();
 
-            services.AddScoped<LogUserActivity>();
-            
             // configure authentication scheme we'r egoing to use
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options => {
@@ -93,6 +96,41 @@ namespace DatingApp.API
                     };
 
                 });
+
+            // creating policies to protect endpoints
+            services.AddAuthorization(options => 
+            {
+                options.AddPolicy("RequireAdminRole", policy => policy.RequireRole("Admin"));
+                options.AddPolicy("ModeratePhotoRole", policy => policy.RequireRole("Admin", "Moderator"));
+                options.AddPolicy("VipOnly", policy => policy.RequireRole("VIP"));
+            });
+
+            services.AddControllers(options => 
+            {
+                var policy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+
+                options.Filters.Add(new AuthorizeFilter(policy));
+
+            }).AddNewtonsoftJson(opt => 
+            {
+                // temp, ignore the looping exception which is caused by user object referencing photos and photos
+                // object referencing users
+                opt.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore;
+            });
+
+
+            // add cors service for middleware
+            services.AddCors();
+            // map the cloudinary settings (api key/secret) to the cloudinary settings helper
+            services.Configure<CloudinarySettings>(Configuration.GetSection("CloudinarySettings"));
+            // using nuget package "AutoMapper.Extensions.Microsoft.DependencyInjection" to link dto's to models
+            services.AddAutoMapper(typeof(DatingRepository).Assembly);
+
+            services.AddScoped<IDatingRepository, DatingRepository>();
+
+            services.AddScoped<LogUserActivity>();
+            
+            
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -121,10 +159,10 @@ namespace DatingApp.API
                         }
                     });
                 });
+                app.UseHsts();
             }
-
-            // disable currently for initial development
-            //app.UseHttpsRedirection();
+            
+            app.UseHttpsRedirection();
 
             app.UseRouting();
 

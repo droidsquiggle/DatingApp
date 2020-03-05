@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -7,7 +8,10 @@ using AutoMapper;
 using DatingApp.API.Data;
 using DatingApp.API.Dtos;
 using DatingApp.API.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
@@ -17,18 +21,20 @@ namespace DatingApp.API.Controllers
     // we're not using the V part but the api controller is stil needed for web calls
     [Route("api/[controller]")]
     [ApiController]
+    [AllowAnonymous]
     public class AuthController : ControllerBase
     {
-        private readonly IAuthRepository _repo;
         private readonly IConfiguration _config;
         private readonly IMapper _mapper;
+        private readonly UserManager<User> _userManager;
+        private readonly SignInManager<User> _signInManager;
 
-        public AuthController(IAuthRepository repo, IConfiguration config, IMapper mapper)
+        public AuthController( IConfiguration config, IMapper mapper, UserManager<User> userManager, SignInManager<User> signInManager)
         {
-            // config needed to get access for AppSettings.json for login function
+            _signInManager = signInManager;
+            _userManager = userManager;
             _config = config;
             _mapper = mapper;
-            _repo = repo;
 
         }
 
@@ -41,41 +47,72 @@ namespace DatingApp.API.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register(UserForRegisterDto userForRegisterDto)
         {
-            // validate request
-
-            userForRegisterDto.Username = userForRegisterDto.Username.ToLower();
-            if (await _repo.UserExists(userForRegisterDto.Username))
-                return BadRequest("Username already exists");
-
             var userToCreate = _mapper.Map<User>(userForRegisterDto);
 
-            var createdUser = await _repo.Register(userToCreate, userForRegisterDto.Password);
+            var result = await _userManager.CreateAsync(userToCreate, userForRegisterDto.Password);
 
-            var userToReturn = _mapper.Map<UserForDetailsDto>(createdUser);
+            var userToReturn = _mapper.Map<UserForDetailsDto>(userToCreate);
 
-            return CreatedAtRoute("GetUser", new {controller = "Users", id = createdUser.Id}, userToReturn);
+            if (result.Succeeded)
+            {
+                return CreatedAtRoute("GetUser", new { controller = "Users", id = userToCreate.Id }, userToReturn);
+            }
+            
+            return BadRequest(result.Errors);
         }
 
         [HttpPost("login")]
         public async Task<IActionResult> Login(UserForLoginDto userForLoginDto)
         {
 
-            var userFromRepo = await _repo.Login(userForLoginDto.Username.ToLower(), userForLoginDto.password);
+            var user = await _userManager.FindByNameAsync(userForLoginDto.Username);
 
-            if(userFromRepo == null)
-                return Unauthorized();
+            var result = await _signInManager.CheckPasswordSignInAsync(user, userForLoginDto.password, false);
 
+            if (result.Succeeded)
+            {
+                // we will mape the user from repo to the UserForListDto and include that in the response
+                // this way our local storage at the highest level of the application will have user info
+                // used to store user main photo in the nav bar
+                // could create a new dto specificallyfor this but being lazy
+                var appUser = await _userManager.Users.Include(p=> p.Photos)
+                    .FirstOrDefaultAsync(u => u.NormalizedUserName == userForLoginDto.Username.ToUpper());
+
+                var userToReturn = _mapper.Map<UserForListDto>(appUser);
+
+                // write token into response we send back to clients with the token handler
+                // the returned token json to the browser you can decode it in on:
+                // https://jwt.io 
+                return Ok(new
+                {
+                    token = GenerateJwtToken(appUser).Result,
+                    user = userToReturn
+                });
+            }
+
+            return Unauthorized();
+        }
+
+        private async Task<string> GenerateJwtToken(User user)
+        {
             // create JWT token which includes username, when they cleared register, and how long they are allowed
             // 2 claims in the token, userid and username
-            var claims = new[]
+            var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, userFromRepo.Id.ToString()),
-                new Claim(ClaimTypes.Name, userFromRepo.Username)
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Name, user.UserName)
             };
+
+            var roles = await _userManager.GetRolesAsync(user);
+
+            foreach (var role in roles)
+            {
+                claims.Add(new Claim(ClaimTypes.Role, role));
+            }
 
             // once claim is created, we need to sign the key
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config.GetSection("AppSettings:Token").Value));
-        
+
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
 
             // create token using the claims from above
@@ -92,20 +129,7 @@ namespace DatingApp.API.Controllers
 
             var token = tokenHandler.CreateToken(tokenDescriptior);
 
-            // we will mape the user from repo to the UserForListDto and include that in the response
-            // this way our local storage at the highest level of the application will have user info
-            // used to store user main photo in the nav bar
-            // could create a new dto specificallyfor this but being lazy
-            var user = _mapper.Map<UserForListDto>(userFromRepo);
-            
-            // write token into response we send back to clients with the token handler
-            // the returned token json to the browser you can decode it in on:
-            // https://jwt.io 
-            return Ok(new {
-                token = tokenHandler.WriteToken(token),
-                user
-            });
-            
+            return tokenHandler.WriteToken(token);
         }
     }
 }

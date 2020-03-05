@@ -12,7 +12,6 @@ namespace DatingApp.API.Controllers
     // apicontroller automatically validates requests
     // [Authorize] tag requires all functions in this controller to be authorized
     // you can make this more micro by adding [AllowAnymous]
-    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class ValuesController : ControllerBase
@@ -24,7 +23,7 @@ namespace DatingApp.API.Controllers
         }
 
         // GET api/values
-        [AllowAnonymous]
+        [Authorize(Roles = "Admin")]
         [HttpGet]
         public async Task<IActionResult> GetValues()
         {
@@ -34,7 +33,7 @@ namespace DatingApp.API.Controllers
         }
 
         // GET api/values/5
-        [AllowAnonymous]
+        [Authorize(Roles = "Member")]
         [HttpGet("{id}")]
         public async Task<IActionResult> GetValue(int id)
         {

@@ -14,5 +14,6 @@ namespace DatingApp.API.Models
         // if a user is deleted, the photos will be deleted too
         public virtual User User { get; set; }
         public int UserId { get; set; }
+        public bool IsApproved { get; set; }
     }
 }

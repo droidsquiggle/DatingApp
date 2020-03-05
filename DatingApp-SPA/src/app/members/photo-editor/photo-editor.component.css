@@ -24,3 +24,16 @@ input[type=file] {
     background-color: gray;
     color: white;
 }
+
+.not-approved {
+    opacity: 0.2;
+}
+
+.img-wrapper {
+    position: relative;
+}
+
+.img-text {
+    position: absolute;
+    bottom:30%;
+}
